@@ -13,7 +13,7 @@ Near-real-time **Live Fuel Moisture Content (LFMC)** mapping for northern Thaila
 
 This repository provides a single pipeline script:
 
-- `lfmc_rainfall_pipeline_final4.py`
+- `generate_s2_lfmc_pipeline.py`
 
 which:
 
@@ -232,7 +232,7 @@ outputs_lfmc/
 ### 6.1. Daily LFMC + weekly composites (local GeoTIFFs)
 
 ```bash
-python lfmc_rainfall_pipeline_final4.py \
+python generate_s2_lfmc_pipeline.py \
   --aoi 97 17 101.5 21 \
   --time_start 2024-03-01 \
   --time_end 2024-03-31 \
@@ -259,7 +259,7 @@ Produces:
 ### 6.2. Monthly composites (Sentinel Hub)
 
 ```bash
-python lfmc_rainfall_pipeline_final4.py \
+python generate_s2_lfmc_pipeline.py \
   --aoi 97 17 101.5 21 \
   --time_start 2024-01-01 \
   --time_end 2024-04-30 \
@@ -280,15 +280,15 @@ Run three times with different output directories:
 
 ```bash
 # Weekly
-python lfmc_rainfall_pipeline_final4.py ... \
+python generate_s2_lfmc_pipeline.py ... \
   --agg weekly --agg_stat median --outdir outputs_weekly
 
 # Biweekly
-python lfmc_rainfall_pipeline_final4.py ... \
+python generate_s2_lfmc_pipeline.py ... \
   --agg biweekly --agg_stat median --outdir outputs_biweekly
 
 # Monthly
-python lfmc_rainfall_pipeline_final4.py ... \
+python generate_s2_lfmc_pipeline.py ... \
   --agg monthly --agg_stat mean --outdir outputs_monthly
 ```
 
