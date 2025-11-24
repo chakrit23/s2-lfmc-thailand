@@ -5,13 +5,15 @@ s2-lfmc-thailand provides an open, reproducible implementation of a Sentinel-2�
 Chotamonsak et al. (2025). “Towards Near Real-Time Estimation of Live Fuel Moisture Content from Sentinel-2 for Fire Management in Northern Thailand.”
 
 This repository includes the full Python code used for preprocessing, spectral-index computation, normalization, moisture proxy integration, and heuristic LFMC estimation. It is intended to support transparency, reproducibility, and future development of a validated LFMC monitoring system for fire management applications in mainland Southeast Asia.
+
+````markdown
 # s2-lfmc-thailand
 
 Near-real-time **Live Fuel Moisture Content (LFMC)** mapping for northern Thailand using **Sentinel-2**.
 
 This repository provides a single pipeline script:
 
-- `lfmc_pipeline.py`
+- `lfmc_rainfall_pipeline_final4.py`
 
 which:
 
@@ -68,4 +70,262 @@ which:
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
 # .\venv\Scripts\activate  # Windows
+````
+
+Install dependencies:
+
+```bash
+pip install numpy pandas xarray matplotlib tqdm requests
+pip install rasterio geopandas shapely
+pip install sentinelhub
+```
+
+### 2.2. Sentinel Hub credentials (for `--s2_source sh`)
+
+```bash
+export SH_CLIENT_ID="your_client_id"
+export SH_CLIENT_SECRET="your_client_secret"
+```
+
+---
+
+## 3. Inputs
+
+### 3.1. Area of interest (AOI)
+
+All coordinates are **WGS84 (EPSG:4326)**:
+
+```bash
+--aoi lon_min lat_min lon_max lat_max
+```
+
+Example (northern Thailand):
+
+```bash
+--aoi 97 17 101.5 21
+```
+
+### 3.2. Time range
+
+Inclusive ISO dates:
+
+```bash
+--time_start 2024-03-01 --time_end 2024-03-31
+```
+
+### 3.3. Sentinel-2 source options
+
+#### Option A: Sentinel Hub
+
+```bash
+--s2_source sh \
+--size 360 360 \
+--maxcc 0.2 \
+--s2_scale 10000
+```
+
+* `--size width height` – output grid size in pixels.
+* `--maxcc` – max cloud fraction (0–1).
+* `--s2_scale` – reflectance scaling (10000 for L2A).
+
+#### Option B: Local GeoTIFFs
+
+```bash
+--s2_source local \
+--size 720 720 \
+--s2_scale 10000 \
+--b04_tpl "data/S2/B04_*.tif" \
+--b08_tpl "data/S2/B08_*.tif" \
+--b11_tpl "data/S2/B11_*.tif" \
+--scl_tpl "data/S2/SCL_*.tif"
+```
+
+Each template should match daily files with dates in the filename, e.g.:
+
+```text
+data/S2/B04_20240301.tif
+data/S2/B08_20240301.tif
+data/S2/B11_20240301.tif
+data/S2/SCL_20240301.tif
+```
+
+The script:
+
+* parses `YYYYMMDD` or `YYYY-MM-DD` from filenames,
+* reprojects and resamples each band to AOI and `--size` in EPSG:4326.
+
+---
+
+## 4. LFMC model and danger classes
+
+### 4.1. Indices and normalization (per pixel)
+
+For valid (non-cloud) pixels:
+
+* NDVI = (B08 − B04) / (B08 + B04)
+* NDII = (B08 − B11) / (B08 + B11)
+* MSI  = B11 / B08
+
+Then normalized to [0,1] with heuristic ranges:
+
+* NDVI_n:  NDVI in [0.2, 0.8]
+* NDII_n:  NDII in [0.0, 0.6]
+* MSI_n:   MSI in [0.6, 1.4], inverted (higher MSI → drier)
+
+Derived terms:
+
+* Soil moisture index:
+  `SM = 0.5 * NDII_n + 0.5 * MSI_n`
+* ET fraction proxy:
+  `ETf = clip(1.25 * NDVI_n, 0, 1)`
+
+### 4.2. LFMC (%) equation
+
+```text
+LFMC = 35 + 80*NDVI_n + 50*SM + 20*(ETf - 0.5)
+LFMC is clipped to [0, 200] (%)
+```
+
+### 4.3. Danger-class thresholds
+
+| Class index | LFMC range (%) | Label              | Color     |
+| ----------- | -------------- | ------------------ | --------- |
+| 0           | `< 80`         | Extreme (<80)      | `#800000` |
+| 1           | `80–100`       | High (80–100)      | `#FF4500` |
+| 2           | `100–120`      | Moderate (100–120) | `#FFD700` |
+| 3           | `120–140`      | Low (120–140)      | `#9ACD32` |
+| 4           | `> 140`        | Very Low (>140)    | `#006400` |
+
+Danger-class GeoTIFFs are `int16` with configurable nodata (default `-1`).
+
+---
+
+## 5. Outputs
+
+Given `--outdir outputs_lfmc`, typical structure:
+
+```text
+outputs_lfmc/
+  lfmc_grids/
+    lfmc_YYYY-MM-DD.png                 # daily LFMC maps
+    lfmc_YYYY-MM-DD.tif                 # daily LFMC GeoTIFFs (optional)
+    composites/
+      lfmc_YYYY-MM-DD_to_YYYY-MM-DD.png # composite LFMC maps
+      lfmc_YYYY-MM-DD_to_YYYY-MM-DD.tif # composite LFMC GeoTIFFs (optional)
+  lfmc_danger/
+    lfmc_danger_YYYY-MM-DD.png          # daily danger map + histogram
+    lfmc_danger_YYYY-MM-DD.pdf
+    composites/
+      lfmc_danger_YYYY-MM-DD_to_YYYY-MM-DD.png
+      lfmc_danger_YYYY-MM-DD_to_YYYY-MM-DD.pdf
+    tif/
+      lfmc_danger_YYYY-MM-DD.tif        # daily danger-class GeoTIFFs (optional)
+      composites/
+        lfmc_danger_YYYY-MM-DD_to_YYYY-MM-DD.tif
+  _tmp_np_grids/                        # temporary .npy LFMC grids (auto-cleaned)
+```
+
+---
+
+## 6. Usage examples
+
+### 6.1. Daily LFMC + weekly composites (local GeoTIFFs)
+
+```bash
+python lfmc_rainfall_pipeline_final4.py \
+  --aoi 97 17 101.5 21 \
+  --time_start 2024-03-01 \
+  --time_end 2024-03-31 \
+  --s2_source local \
+  --size 720 720 \
+  --s2_scale 10000 \
+  --b04_tpl "data/S2/B04_*.tif" \
+  --b08_tpl "data/S2/B08_*.tif" \
+  --b11_tpl "data/S2/B11_*.tif" \
+  --scl_tpl "data/S2/SCL_*.tif" \
+  --outdir outputs_weekly \
+  --workers 4 \
+  --daily_outputs tif \
+  --agg weekly \
+  --agg_stat median
+```
+
+Produces:
+
+* daily LFMC GeoTIFFs,
+* daily LFMC danger maps,
+* **weekly median** LFMC composites and danger maps.
+
+### 6.2. Monthly composites (Sentinel Hub)
+
+```bash
+python lfmc_rainfall_pipeline_final4.py \
+  --aoi 97 17 101.5 21 \
+  --time_start 2024-01-01 \
+  --time_end 2024-04-30 \
+  --s2_source sh \
+  --size 360 360 \
+  --maxcc 0.2 \
+  --s2_scale 10000 \
+  --outdir outputs_monthly \
+  --workers 4 \
+  --daily_outputs both \
+  --agg monthly \
+  --agg_stat mean
+```
+
+### 6.3. Generating all three aggregation scales
+
+Run three times with different output directories:
+
+```bash
+# Weekly
+python lfmc_rainfall_pipeline_final4.py ... \
+  --agg weekly --agg_stat median --outdir outputs_weekly
+
+# Biweekly
+python lfmc_rainfall_pipeline_final4.py ... \
+  --agg biweekly --agg_stat median --outdir outputs_biweekly
+
+# Monthly
+python lfmc_rainfall_pipeline_final4.py ... \
+  --agg monthly --agg_stat mean --outdir outputs_monthly
+```
+
+(`...` = shared arguments such as `--aoi`, `--time_start`, `--time_end`, `--s2_source`, etc.)
+
+### 6.4. Output control
+
+* `--daily_outputs both|png|tif|none`
+* `--no_daily_danger` – skip daily danger maps.
+* `--no_overlay_daily` – skip boundaries overlay on daily maps (composites still overlay).
+* `--write_danger_tif` – write danger-class GeoTIFFs for daily + composites.
+* `--danger_tif_nodata N` – nodata value for danger-class GeoTIFFs (default `-1`).
+* `--keep_tmp` – keep `_tmp_np_grids/` for debugging.
+
+### 6.5. Boundaries overlay
+
+```bash
+--boundaries data/shapes/th_province_4326.shp
+```
+
+* Must be readable by `geopandas`.
+* Reprojected to EPSG:4326 and clipped to AOI.
+* Province labels taken from one of: `prov_name`, `NAME_1`, `NAME_TH`, `name`, `NAME`.
+
+---
+
+## 7. License
+
+*(Add your chosen open-source license here, e.g. MIT, BSD-3, GPL-3.)*
+
+---
+
+## 8. Contact
+
+For questions or collaboration, please open an issue in this repository.
+
+```
+```
+
 
