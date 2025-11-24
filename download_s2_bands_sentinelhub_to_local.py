@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-download_s2_bands_sentinelhub_v2_2_scl_nodata.py
+download_s2_bands_sentinelhub_to_local.py
 Sentinel‑2 L2A downloader (no sentinelhub client) — patched:
   • SCL uses dataMask → writes 0 outside valid data (no NaN in uint8)
   • --scl_nodata N : set nodata tag for SCL outputs (e.g., 0) via gdal_edit.py or rio
 Keeps: parallel HTTP, retries, tiling, presets from earlier v2.2.
 
-python download_s2_bands_sentinelhub.py mosaic   \
+python download_s2_bands_sentinelhub_to_local.py mosaic   \
 --bbox 97 17 101.5 21   \
 --start 2024-01-01 \
 --end 2024-01-07   \
@@ -19,7 +19,7 @@ python download_s2_bands_sentinelhub.py mosaic   \
 --bands B04,B08,B11,SCL   \
 --scl_nodata 0
 
-python download_s2_bands_sentinelhub.py daily   \
+python download_s2_bands_sentinelhub_to_local.py daily   \
 --bbox 97 17 101.5 21   \
 --start 2024-01-01 \
 --end 2024-04-30   \
