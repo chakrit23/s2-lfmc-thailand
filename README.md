@@ -190,11 +190,11 @@ LFMC is clipped to [0, 200] (%)
 
 | Class index | LFMC range (%) | Label              | Color     |
 | ----------- | -------------- | ------------------ | --------- |
-| 0           | `< 80`         | Extreme (<80)      | `#800000` |
-| 1           | `80–100`       | High (80–100)      | `#FF4500` |
-| 2           | `100–120`      | Moderate (100–120) | `#FFD700` |
-| 3           | `120–140`      | Low (120–140)      | `#9ACD32` |
-| 4           | `> 140`        | Very Low (>140)    | `#006400` |
+| 0           | `< 80`         | Extreme Dry (<80)      | `#800000` |
+| 1           | `80–100`       | Dry (80–100)      | `#FF4500` |
+| 2           | `100–120`      | Moderate Dry (100–120) | `#FFD700` |
+| 3           | `120–140`      | Moderate Moist (120–140)      | `#9ACD32` |
+| 4           | `> 140`        | Moist (>140)    | `#006400` |
 
 Danger-class GeoTIFFs are `int16` with configurable nodata (default `-1`).
 
