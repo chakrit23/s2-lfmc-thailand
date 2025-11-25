@@ -317,8 +317,6 @@ python generate_s2_lfmc_pipeline.py ... \
 
 ## 7. License
 
-*(Add your chosen open-source license here, e.g. MIT, BSD-3, GPL-3.)*
-
 ---
 
 ## 8. Contact
